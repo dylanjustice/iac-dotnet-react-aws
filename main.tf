@@ -42,14 +42,14 @@ resource "aws_security_group" "db" {
   name        = "sg-rds-${local.environment}"
   description = "Traffic to the database"
   vpc_id      = aws_vpc.main.id
-  ingress = {
+  ingress {
     description      = "App Subnet traffic to database"
     from_port        = 443
     to_port          = 5432
     cidr_blocks      = [aws_vpc.main.cidr_block]
     ipv6_cidr_blocks = [aws_vpc.main.ipv6_cidr_block]
   }
-  egress = {
+  egress {
     from_port        = 0
     to_port          = 0
     protocol         = "-1"
@@ -57,12 +57,16 @@ resource "aws_security_group" "db" {
     ipv6_cidr_blocks = ["::/0"]
   }
 }
+resource "aws_db_subnet_group" "db_subnet_group" {
+  name       = "main"
+  subnet_ids = [aws_subnet.database.id]
+}
 
 # Database
 resource "aws_db_instance" "db" {
   allocated_storage      = 10
   availability_zone      = "us-east-1a"
-  db_subnet_group_name   = aws_subnet.database.name
+  db_subnet_group_name   = aws_db_subnet_group.db_subnet_group.name
   engine                 = "aurora-postgresql"
   engine_version         = 5.7
   instance_class         = "db.t3.micro"
@@ -74,10 +78,6 @@ resource "aws_db_instance" "db" {
   identifier             = "boots-${local.environment}-db"
 }
 
-resource "aws_db_subnet_group" "db_subnet_group" {
-  name       = "main"
-  subnet_ids = [aws_subnet.database.id]
-}
 
 # AWS S3
 ## Frontend public bucket
@@ -227,7 +227,7 @@ resource "aws_elastic_beanstalk_environment" "api_environment" {
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "ConnectionStrings__GbContext"
-    value     = "Host=${aws_db_instance.endpoint};Port=${aws_db_instance.port};Database=${var.default_database_name};Username=${var.db_username};Password=${var.db_password}"
+    value     = "Host=${aws_db_instance.db.endpoint};Port=${aws_db_instance.db.port};Database=${var.default_database_name};Username=${var.db_username};Password=${var.db_password}"
   }
   setting {
     namespace = "aws:elasticbeanstalk:cloudwatch:logs"
